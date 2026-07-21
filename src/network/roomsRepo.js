@@ -79,29 +79,67 @@ async function addPlayer(code, profile, extra) {
 }
 
 /**
- * Вход в комнату. Проверки идут внутри транзакции, чтобы два игрока
- * не заняли последнее место одновременно.
- * Возвращает { ok } или { error: 'notFound' | 'full' | 'started' }.
+ * Ошибки сети раньше уходили в общий обработчик и игрок видел только
+ * «что-то пошло не так». Теперь причина возвращается вызывающему коду,
+ * а подробность остаётся в консоли — по ней сразу видно, например,
+ * что правила Firestore не развёрнуты.
+ */
+function networkError(scope, err) {
+  console.error(`[rooms] ${scope}:`, err);
+  return { error: 'network' };
+}
+
+/**
+ * Вход в комнату.
+ *
+ * Игрок пишет ровно один документ — свой собственный: правила Firestore
+ * не дают ему трогать ни комнату, ни чужие карточки. Поэтому место
+ * занимается так: проверили, записались, перечитали список. Если за это
+ * время кто-то успел занять последнее место, лишний сам убирает свою
+ * карточку — порядок определяется временем входа, одинаковым для всех.
+ *
+ * Возвращает { ok } или { error: 'notFound' | 'full' | 'started' | 'network' }.
  */
 export async function joinRoom(code, profile) {
   const store = db();
-  const room = await store.get(paths.room(code));
-  if (!room) return { error: 'notFound' };
-  if (room.status !== 'lobby') {
-    // Вернуться в свою партию можно, новых игроков не пускаем.
+
+  try {
+    const room = await store.get(paths.room(code));
+    if (!room) return { error: 'notFound' };
+
+    // Возвращение в свою партию разрешено всегда, новых игроков не пускаем.
     const existing = await store.get(paths.player(code, profile.uid));
-    return existing ? { ok: true, rejoined: true } : { error: 'started' };
-  }
+    if (existing) {
+      await store.update(paths.player(code, profile.uid), {
+        name: cleanName(profile.name) || existing.name,
+        avatar: profile.avatar || existing.avatar,
+        lastSeen: Date.now(),
+      });
+      return { ok: true, rejoined: true };
+    }
+    if (room.status !== 'lobby') return { error: 'started' };
 
-  const players = await store.list(paths.players(code));
-  if (players.some((p) => p.uid === profile.uid)) {
-    await store.update(paths.player(code, profile.uid), { lastSeen: Date.now() });
-    return { ok: true, rejoined: true };
-  }
-  if (players.length >= room.settings.maxPlayers) return { error: 'full' };
+    const before = await store.list(paths.players(code));
+    if (before.length >= room.settings.maxPlayers) return { error: 'full' };
 
-  await addPlayer(code, profile, {});
-  return { ok: true };
+    await addPlayer(code, profile, {});
+
+    // Проверяем, что место действительно осталось за нами.
+    const after = await store.list(paths.players(code));
+    const seated = after
+      .slice()
+      .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0))
+      .slice(0, room.settings.maxPlayers);
+
+    if (!seated.some((p) => p.uid === profile.uid)) {
+      await store.del(paths.player(code, profile.uid));
+      return { error: 'full' };
+    }
+
+    return { ok: true, player: after.find((p) => p.uid === profile.uid) || null };
+  } catch (err) {
+    return networkError('вход в комнату', err);
+  }
 }
 
 /** Выход из комнаты. Хозяйство передаётся следующему игроку. */
@@ -140,7 +178,12 @@ export async function destroyRoom(code) {
 }
 
 export async function setReady(code, uid, ready) {
-  await db().update(paths.player(code, uid), { ready: Boolean(ready), lastSeen: Date.now() });
+  try {
+    await db().update(paths.player(code, uid), { ready: Boolean(ready), lastSeen: Date.now() });
+    return { ok: true };
+  } catch (err) {
+    return networkError('отметка готовности', err);
+  }
 }
 
 export async function touch(code, uid) {
@@ -153,7 +196,12 @@ export async function updatePlayer(code, uid, patch) {
 
 /** Настройки комнаты меняет только хозяин (это же проверяют правила Firestore). */
 export async function updateSettings(code, settings) {
-  await db().update(paths.room(code), { settings, updatedAt: Date.now() });
+  try {
+    await db().update(paths.room(code), { settings, updatedAt: Date.now() });
+    return { ok: true };
+  } catch (err) {
+    return networkError('сохранение настроек комнаты', err);
+  }
 }
 
 /** Обновление состояния партии одним документом — одна операция записи. */

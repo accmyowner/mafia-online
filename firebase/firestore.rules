@@ -68,17 +68,23 @@ service cloud.firestore {
       /* ---------- игроки ---------- */
 
       match /players/{uid} {
-        allow read: if isMember(code) || signedIn();
+        // Список игроков видят все, кто вошёл: на нём держится лобби.
+        allow read: if signedIn();
 
         // Входя в комнату, игрок создаёт свой и только свой документ.
+        // Создатель комнаты садится за стол с пометкой хозяина, все
+        // остальные — обычными игроками: назначить себя хозяином нельзя,
+        // и главное — право хозяина всё равно определяет поле hostId.
         allow create: if signedIn()
                       && uid == request.auth.uid
-                      && request.resource.data.uid == request.auth.uid;
+                      && request.resource.data.uid == request.auth.uid
+                      && (request.resource.data.isHost == false || isHost(code));
 
         // Себя игрок правит сам, чужие карточки — только ведущий
-        // (он отмечает выбывших после ночи и голосования).
+        // (он отмечает выбывших и передаёт права при выходе).
         allow update: if (signedIn() && uid == request.auth.uid
-                          && request.resource.data.uid == resource.data.uid)
+                          && request.resource.data.uid == resource.data.uid
+                          && request.resource.data.isHost == resource.data.isHost)
                       || isHost(code);
 
         allow delete: if (signedIn() && uid == request.auth.uid) || isHost(code);

@@ -33,6 +33,7 @@ export function renderLobby(params = {}) {
   const subs = subscriptionBundle();
   let knownPlayerIds = '';
   let knownSettings = '';
+  let knownHostId = '';
 
   /* ---------- статические части ---------- */
 
@@ -67,11 +68,17 @@ export function renderLobby(params = {}) {
   readyButton.addEventListener('click', async () => {
     const me = store.me;
     if (!me) return;
-    await setReady(code, me.uid, !me.ready);
+    readyButton.disabled = true;
+    const result = await setReady(code, me.uid, !me.ready);
+    readyButton.disabled = false;
+    if (result?.error) { showToast(t('error.network'), 'error'); return; }
     sound.play('ready');
   });
 
   startButton.addEventListener('click', async () => {
+    // Кнопку видит только хозяин, но проверка нужна и здесь:
+    // права могли перейти другому игроку прямо перед нажатием.
+    if (!store.isHost) { showToast(t('error.notHost'), 'warn'); return; }
     startButton.disabled = true;
     const result = await engine.startGame();
     if (result?.error) {
@@ -97,7 +104,7 @@ export function renderLobby(params = {}) {
     const { players, room } = store.get();
     if (!room) return;
 
-    const signature = players.map((p) => `${p.uid}:${p.ready}`).join('|');
+    const signature = `${room.hostId}|${players.map((p) => `${p.uid}:${p.ready}`).join('|')}`;
     if (signature !== knownPlayerIds) {
       knownPlayerIds = signature;
       playersGrid.replaceChildren(...players.map((player, index) =>
@@ -157,9 +164,18 @@ export function renderLobby(params = {}) {
   function refreshSettings() {
     const { room } = store.get();
     if (!room) return;
-    // Хозяин правит свою копию — перерисовка сбросила бы ему фокус.
-    const signature = JSON.stringify(room.settings);
-    if (store.isHost && knownSettings) { knownSettings = signature; return; }
+
+    // Панель знает, может ли её владелец что-то менять, поэтому смена
+    // хозяина (например, когда прежний вышел) обязана её пересобрать.
+    const signature = `${room.hostId}|${JSON.stringify(room.settings)}`;
+    const hostChanged = knownHostId !== room.hostId;
+    knownHostId = room.hostId;
+
+    if (store.isHost && knownSettings && !hostChanged) {
+      // Хозяин правит свою копию — перерисовка сбросила бы ему фокус.
+      knownSettings = signature;
+      return;
+    }
     if (signature === knownSettings) return;
     knownSettings = signature;
     settingsSlot.replaceChildren(roomSettingsPanel(code, room));

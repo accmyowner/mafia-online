@@ -252,8 +252,7 @@ export const engine = new GameEngine();
 export async function saveRoomSettings(code, settings) {
   if (!store.isHost) {
     bus.emit('toast', { text: 'error.notHost', tone: 'error' });
-    return false;
+    return { error: 'notHost' };
   }
-  await updateSettings(code, settings);
-  return true;
+  return updateSettings(code, settings);
 }

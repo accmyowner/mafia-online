@@ -12,6 +12,7 @@ import { ASSIGNABLE, BASE_ROLES, EXTRA_ROLES, getRole } from '../roles/index.js'
 import { validateDeck, buildDeck } from '../game/roleAssignment.js';
 import { saveRoomSettings } from '../game/gameEngine.js';
 import { throttle } from '../utils/time.js';
+import { showToast } from '../ui/components/toast.js';
 
 /** Копия настроек, с которой работает панель до отправки в базу. */
 function draftOf(room) {
@@ -21,7 +22,14 @@ function draftOf(room) {
 export function roomSettingsPanel(code, room) {
   const canEdit = store.isHost;
   const draft = draftOf(room);
-  const push = throttle(() => saveRoomSettings(code, draft), 400);
+
+  // Проверяем права ещё раз в момент записи: между сборкой панели и
+  // нажатием кнопки хозяин комнаты мог смениться.
+  const push = throttle(async () => {
+    if (!store.isHost) return;
+    const result = await saveRoomSettings(code, draft);
+    if (result?.error) showToast(t('error.network'), 'error');
+  }, 400);
 
   const balance = el('div.balance');
 

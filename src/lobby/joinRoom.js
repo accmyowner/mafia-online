@@ -14,20 +14,30 @@ import { save } from '../utils/storage.js';
 import { STORAGE_KEYS, LIMITS } from '../core/config.js';
 import { sound } from '../utils/sound.js';
 
-const ERRORS = { notFound: 'join.notFound', full: 'join.full', started: 'join.started' };
+const ERRORS = {
+  notFound: 'join.notFound',
+  full: 'join.full',
+  started: 'join.started',
+  network: 'error.network',
+};
 
 export function renderJoin(params = {}) {
   let busy = false;
 
+  // Код — только латиница A-Z и цифры 0-9. Русская раскладка, пробелы,
+  // дефисы и лишние слова из сообщения разбираются в cleanCode().
   const input = el('input.input.input--code', {
     type: 'text',
     inputMode: 'text',
+    pattern: '[A-Za-z0-9]*',
     autocapitalize: 'characters',
+    autocorrect: 'off',
     autocomplete: 'off',
     spellcheck: false,
     maxLength: LIMITS.codeLength,
-    value: params.code || '',
-    placeholder: 'ABCDE',
+    value: cleanCode(params.code || ''),
+    placeholder: 'NDPS8',
+    'aria-label': t('join.codeLabel'),
   });
 
   const button = el('button.btn.btn--primary.btn--block', {
@@ -64,12 +74,31 @@ export function renderJoin(params = {}) {
 
     save(STORAGE_KEYS.lastRoom, code);
     sound.play('join');
+
+    // Показываем себя в лобби не дожидаясь первого снимка из базы:
+    // подписка всё равно перезапишет список через мгновение.
+    if (result.player) {
+      store.patch({ roomCode: code, players: [result.player] });
+    }
     router.go('lobby', { code });
   }
 
   input.addEventListener('input', (event) => {
     const code = cleanCode(event.target.value);
     event.target.value = code;
+    input.classList.remove('input--error');
+    button.disabled = !isValidCode(code);
+    if (isValidCode(code)) attempt();
+  });
+
+  // Вставка длинной строки: браузер обрежет её по maxlength раньше, чем
+  // мы успеем найти в ней код, поэтому разбираем текст сами.
+  input.addEventListener('paste', (event) => {
+    const text = event.clipboardData?.getData('text');
+    if (!text) return;
+    event.preventDefault();
+    const code = cleanCode(text);
+    input.value = code;
     input.classList.remove('input--error');
     button.disabled = !isValidCode(code);
     if (isValidCode(code)) attempt();
