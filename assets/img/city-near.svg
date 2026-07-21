@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 300" preserveAspectRatio="none" width="1600" height="300">
+  <g fill="#070b18"><rect x="-20" y="55" width="157" height="245" rx="2"/>
+<rect x="55" y="22" width="7" height="33"/>
+<rect x="150" y="79" width="151" height="221" rx="2"/>
+<rect x="223" y="53" width="5" height="26"/>
+<rect x="311" y="94" width="83" height="206" rx="2"/>
+<rect x="400" y="102" width="118" height="198" rx="2"/>
+<rect x="532" y="187" width="76" height="113" rx="2"/>
+<rect x="618" y="118" width="106" height="182" rx="2"/>
+<rect x="732" y="66" width="145" height="234" rx="2"/>
+<rect x="890" y="202" width="143" height="98" rx="2"/>
+<rect x="1044" y="81" width="97" height="219" rx="2"/>
+<rect x="1143" y="80" width="70" height="220" rx="2"/>
+<rect x="1216" y="62" width="160" height="238" rx="2"/>
+<rect x="1294" y="39" width="5" height="23"/>
+<rect x="1386" y="205" width="90" height="95" rx="2"/>
+<rect x="1481" y="131" width="164" height="169" rx="2"/></g>
+  <style>.w{fill:#000;}</style>
+</svg>

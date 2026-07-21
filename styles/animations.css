@@ -1,0 +1,153 @@
+/**
+ * Движение.
+ *
+ * Правило простое: интерфейс появляется снизу вверх и с прозрачности,
+ * исчезает быстрее, чем появляется, и ничего не дёргается. Крупные
+ * эффекты — только на открытии роли и на экране итога.
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Ключевые кадры                                                     */
+/* ------------------------------------------------------------------ */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  70%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(28px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translateX(28px) scale(0.96); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(2px); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+@keyframes logo-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); filter: blur(8px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes result-in {
+  from { opacity: 0; transform: translateY(30px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+@keyframes dot-pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70%  { box-shadow: 0 0 0 7px transparent; opacity: 0.75; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+}
+
+/* --- фоновые, медленные --- */
+
+@keyframes aurora-drift {
+  from { transform: translate3d(-2%, 0, 0) scale(1); }
+  to   { transform: translate3d(3%, -2%, 0) scale(1.08); }
+}
+
+@keyframes fog-drift {
+  from { transform: translate3d(-6%, 0, 0); }
+  to   { transform: translate3d(6%, 0, 0); }
+}
+
+@keyframes glow-pulse {
+  from { opacity: 0.75; }
+  to   { opacity: 1; }
+}
+
+@keyframes city-breathe {
+  from { opacity: 0.78; }
+  to   { opacity: 0.92; }
+}
+
+@keyframes twinkle {
+  from { opacity: 0.45; }
+  to   { opacity: 0.85; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Появление экранов и списков                                        */
+/* ------------------------------------------------------------------ */
+
+/* Каскад: блоки экрана выезжают друг за другом. */
+.screen > * {
+  animation: rise 480ms var(--ease-out) backwards;
+}
+
+.screen > *:nth-child(1) { animation-delay: 0ms; }
+.screen > *:nth-child(2) { animation-delay: 60ms; }
+.screen > *:nth-child(3) { animation-delay: 120ms; }
+.screen > *:nth-child(4) { animation-delay: 180ms; }
+.screen > *:nth-child(5) { animation-delay: 240ms; }
+.screen > *:nth-child(n+6) { animation-delay: 300ms; }
+
+/* Карточки игроков появляются волной — очередь задаёт --i из JS. */
+.player {
+  animation: rise 420ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+.role-doc {
+  animation: rise 420ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.feed__item { animation-delay: 40ms; }
+
+.reveal-row {
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Уважение к настройкам системы                                      */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .atmosphere > * { animation: none !important; }
+  .role-card__inner { transition: transform 200ms linear; }
+}

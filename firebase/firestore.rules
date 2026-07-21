@@ -1,0 +1,151 @@
+rules_version = '2';
+
+/**
+ * Правила доступа к данным «Мафии Online».
+ *
+ * Клиенту нельзя верить: роль, чужой голос и ночное действие соседа
+ * должны быть недоступны даже из консоли браузера. Поэтому:
+ *   · роль лежит в закрытом документе и читается только владельцем;
+ *   · ночные действия видит только ведущий партии;
+ *   · голос создаётся один раз и не переписывается;
+ *   · чужие документы игроков правит только хозяин комнаты.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ---------- вспомогательные функции ---------- */
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function room(code) {
+      return get(/databases/$(database)/documents/rooms/$(code)).data;
+    }
+
+    function isHost(code) {
+      return signedIn() && room(code).hostId == request.auth.uid;
+    }
+
+    // Игрок считается участником комнаты, пока существует его документ.
+    function isMember(code) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/rooms/$(code)/players/$(request.auth.uid));
+    }
+
+    function myTeam(code) {
+      return get(/databases/$(database)/documents/rooms/$(code)/secret/$(request.auth.uid)).data.team;
+    }
+
+    // Хозяин ушёл, не закрыв комнату: разрешаем передать права.
+    function hostVanished(code) {
+      return !exists(/databases/$(database)/documents/rooms/$(code)/players/$(resource.data.hostId));
+    }
+
+    function onlyChanged(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    /* ---------- комната ---------- */
+
+    match /rooms/{code} {
+      // Код комнаты знают только те, кому его дали, — этого достаточно.
+      allow get: if signedIn();
+      // Список всех комнат наружу не отдаём.
+      allow list: if false;
+
+      allow create: if signedIn()
+                    && request.resource.data.hostId == request.auth.uid
+                    && request.resource.data.status == 'lobby';
+
+      // Настройки и ход партии меняет только ведущий.
+      allow update: if isHost(code)
+                    || (isMember(code) && hostVanished(code)
+                        && onlyChanged(['hostId', 'updatedAt']));
+
+      allow delete: if isHost(code);
+
+      /* ---------- игроки ---------- */
+
+      match /players/{uid} {
+        allow read: if isMember(code) || signedIn();
+
+        // Входя в комнату, игрок создаёт свой и только свой документ.
+        allow create: if signedIn()
+                      && uid == request.auth.uid
+                      && request.resource.data.uid == request.auth.uid;
+
+        // Себя игрок правит сам, чужие карточки — только ведущий
+        // (он отмечает выбывших после ночи и голосования).
+        allow update: if (signedIn() && uid == request.auth.uid
+                          && request.resource.data.uid == resource.data.uid)
+                      || isHost(code);
+
+        allow delete: if (signedIn() && uid == request.auth.uid) || isHost(code);
+      }
+
+      /* ---------- закрытые документы: роли и память ведущего ---------- */
+
+      match /secret/{uid} {
+        // Свою роль игрок видит, чужую — нет. Служебный документ ведущего
+        // (_engine) недоступен никому, кроме него.
+        allow get: if signedIn() && uid == request.auth.uid && uid != '_engine';
+        allow list, write: if isHost(code);
+      }
+
+      /* ---------- ночные действия ---------- */
+
+      match /actions/{actionId} {
+        // Читает только ведущий: иначе город увидел бы выстрел мафии.
+        allow read: if isHost(code);
+
+        // Идентификатор документа жёстко привязан к игроку и кругу,
+        // поэтому подменить автора или сходить дважды не выйдет.
+        allow create, update: if signedIn()
+                              && actionId == request.resource.data.round + '_' + request.auth.uid
+                              && request.resource.data.actorId == request.auth.uid;
+
+        allow delete: if isHost(code);
+      }
+
+      /* ---------- голосование ---------- */
+
+      match /votes/{voteId} {
+        // Счёт голосов открытый — его видно на экране голосования.
+        allow read: if isMember(code);
+
+        // Голос отдают один раз: обновление своего документа запрещено.
+        allow create: if signedIn()
+                      && voteId == request.resource.data.round + '_' + request.auth.uid
+                      && request.resource.data.voterId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isHost(code);
+      }
+
+      /* ---------- чат города ---------- */
+
+      match /chat/{messageId} {
+        allow read: if isMember(code);
+        allow create: if isMember(code)
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() <= 200;
+        allow update: if false;
+        allow delete: if isHost(code);
+      }
+
+      /* ---------- закрытый чат мафии ---------- */
+
+      match /chatMafia/{messageId} {
+        allow read: if isMember(code) && myTeam(code) == 'mafia';
+        allow create: if isMember(code)
+                      && myTeam(code) == 'mafia'
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() <= 200;
+        allow update: if false;
+        allow delete: if isHost(code);
+      }
+    }
+  }
+}

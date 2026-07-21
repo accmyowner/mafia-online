@@ -1,0 +1,873 @@
+/**
+ * Компоненты интерфейса.
+ *
+ * Общий приём — матовое стекло: полупрозрачная поверхность с размытием,
+ * светлая линия сверху (как блик на стекле) и мягкая тень под ней.
+ * Неон появляется только на активных элементах, иначе он перестаёт
+ * что-либо значить.
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Панели                                                             */
+/* ------------------------------------------------------------------ */
+
+.panel {
+  position: relative;
+  padding: clamp(var(--space-4), 2.5vw, var(--space-5));
+  border-radius: var(--r-lg);
+  background:
+    linear-gradient(160deg, var(--glass-top) 0%, var(--glass-bottom) 60%),
+    rgba(24, 32, 60, 0.55);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+/* Блик по верхней кромке — деталь, которая делает стекло стеклом. */
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  pointer-events: none;
+}
+
+.panel--tight { padding: var(--space-4); }
+
+.panel--accent {
+  border-color: color-mix(in srgb, var(--phase) 45%, transparent);
+  box-shadow: var(--shadow-md), 0 0 40px -18px var(--phase);
+}
+
+.panel__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.panel__title h3 { letter-spacing: -0.01em; }
+
+/* ------------------------------------------------------------------ */
+/*  Кнопки                                                             */
+/* ------------------------------------------------------------------ */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 14px 22px;
+  min-height: 50px;
+  border-radius: var(--r-md);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: var(--step-0);
+  letter-spacing: 0.01em;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform var(--t-fast) var(--ease-out),
+    box-shadow var(--t-mid) var(--ease-out),
+    border-color var(--t-mid) var(--ease-out),
+    background-color var(--t-mid) var(--ease-out),
+    filter var(--t-mid) var(--ease-out);
+}
+
+/* Блик, пробегающий по кнопке при наведении. */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform var(--t-slow) var(--ease-out);
+}
+
+.btn:hover::after { transform: translateX(120%); }
+
+.btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--glass-line-strong);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.btn:active { transform: translateY(0) scale(0.985); }
+
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+  filter: saturate(0.4);
+}
+
+.btn:disabled::after { display: none; }
+
+.btn__icon {
+  font-size: 1.15em;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+}
+
+.btn__hint {
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+/* --- варианты --- */
+
+.btn--primary {
+  background: var(--grad-violet);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 12px 30px -14px rgba(124, 92, 255, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.btn--primary:hover {
+  background: var(--grad-violet);
+  box-shadow: 0 16px 40px -14px rgba(124, 92, 255, 1), var(--glow-violet), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn--mint {
+  background: var(--grad-mint);
+  border-color: transparent;
+  color: #04241d;
+  box-shadow: 0 12px 30px -14px rgba(67, 232, 182, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.btn--mint:hover { box-shadow: 0 16px 40px -14px rgba(67, 232, 182, 1), var(--glow-mint); }
+
+.btn--danger {
+  background: var(--grad-rose);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 12px 30px -14px rgba(255, 77, 109, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.btn--danger:hover { box-shadow: 0 16px 40px -14px rgba(255, 77, 109, 1), var(--glow-rose); }
+
+.btn--ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+}
+.btn--ghost:hover { color: var(--text); }
+
+.btn--block { width: 100%; }
+
+.btn--sm {
+  min-height: 40px;
+  padding: 9px 16px;
+  font-size: var(--step--1);
+  border-radius: var(--r-sm);
+}
+
+/* Крупная кнопка главного меню. */
+.menu-btn {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-5);
+  min-height: 118px;
+  text-align: left;
+  border-radius: var(--r-lg);
+  background:
+    linear-gradient(160deg, var(--glass-top) 0%, var(--glass-bottom) 70%),
+    rgba(24, 32, 60, 0.5);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.menu-btn .btn__icon {
+  font-size: 1.8em;
+  margin-bottom: var(--space-2);
+}
+
+.menu-btn__label {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--step-1);
+  letter-spacing: -0.01em;
+}
+
+.menu-btn__sub {
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+
+.menu-btn:hover { border-color: color-mix(in srgb, var(--violet) 55%, transparent); }
+.menu-btn:hover .menu-btn__sub { color: var(--text-dim); }
+
+/* Первая кнопка меню светится сильнее: с неё начинается игра. */
+.menu-btn.btn--primary { background: var(--grad-violet); }
+.menu-btn.btn--primary .menu-btn__sub { color: rgba(255, 255, 255, 0.75); }
+
+/* Кнопка «назад». */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 14px 8px 10px;
+  border-radius: var(--r-pill);
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-line);
+  font-size: var(--step--1);
+  font-weight: 600;
+  transition: transform var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+
+.back:hover { color: var(--text); transform: translateX(-3px); }
+
+/* ------------------------------------------------------------------ */
+/*  Поля ввода                                                         */
+/* ------------------------------------------------------------------ */
+
+.field { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.field__label {
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.input {
+  width: 100%;
+  padding: 14px 16px;
+  min-height: 50px;
+  border-radius: var(--r-md);
+  color: var(--text);
+  background: rgba(8, 12, 26, 0.55);
+  border: 1px solid var(--glass-line);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: border-color var(--t-mid) var(--ease-out), box-shadow var(--t-mid) var(--ease-out);
+}
+
+.input::placeholder { color: var(--text-faint); }
+
+.input:hover { border-color: var(--glass-line-strong); }
+
+.input:focus {
+  outline: none;
+  border-color: var(--violet);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(124, 92, 255, 0.18);
+}
+
+.input--error {
+  border-color: var(--rose);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(255, 77, 109, 0.18);
+  animation: shake 420ms var(--ease-out);
+}
+
+/* Поле для кода комнаты: крупный моноширинный ввод вразрядку. */
+.input--code {
+  font-family: var(--font-mono);
+  font-size: clamp(1.6rem, 1.1rem + 2.4vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: clamp(0.12em, 2vw, 0.3em);
+  text-align: center;
+  text-transform: uppercase;
+  padding-block: 18px;
+  min-height: 76px;
+}
+
+/* Ползунок громкости. */
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--violet), var(--azure));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--violet);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), var(--glow-violet);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+.range::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+.range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--violet);
+}
+
+/* Переключатель. */
+.switch__track {
+  position: relative;
+  width: 56px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: rgba(8, 12, 26, 0.7);
+  border: 1px solid var(--glass-line);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: background-color var(--t-mid) var(--ease-out), border-color var(--t-mid) var(--ease-out);
+}
+
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition: transform var(--t-mid) var(--ease-out), background var(--t-mid) var(--ease-out);
+}
+
+.switch__track[aria-checked='true'] {
+  background: var(--grad-mint);
+  border-color: transparent;
+  box-shadow: 0 0 20px -6px rgba(67, 232, 182, 0.7);
+}
+
+.switch__track[aria-checked='true']::after {
+  transform: translateX(26px);
+  background: #04241d;
+}
+
+.switch__track[tabindex='-1'] { opacity: 0.5; cursor: default; }
+
+/* Счётчик со стрелками. */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px;
+  border-radius: var(--r-pill);
+  background: rgba(8, 12, 26, 0.55);
+  border: 1px solid var(--glass-line);
+}
+
+.stepper__btn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.05);
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+
+.stepper__btn:hover:not(:disabled) {
+  background: var(--violet);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+.stepper__btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.stepper__value {
+  min-width: 74px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Строка настройки. */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.setting-row:last-child { border-bottom: 0; }
+
+.setting-row__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setting-row__hint {
+  font-size: var(--step--1);
+  color: var(--text-faint);
+  line-height: 1.35;
+}
+
+.setting-row--locked { opacity: 0.62; }
+
+/* ------------------------------------------------------------------ */
+/*  Карточка игрока                                                    */
+/* ------------------------------------------------------------------ */
+
+.player {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  border-radius: var(--r-md);
+  text-align: center;
+  background:
+    linear-gradient(165deg, var(--glass-top) 0%, var(--glass-bottom) 70%),
+    rgba(20, 27, 52, 0.5);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--t-mid) var(--ease-out),
+    border-color var(--t-mid) var(--ease-out),
+    box-shadow var(--t-mid) var(--ease-out),
+    opacity var(--t-mid) var(--ease-out);
+}
+
+.player__avatar {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--glass-line);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.player__name {
+  font-weight: 700;
+  font-size: var(--step-0);
+  line-height: 1.25;
+  max-width: 100%;
+}
+
+.player__meta {
+  font-size: var(--step--1);
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+.player__tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: var(--space-1);
+}
+
+/* Счётчик голосов в углу карточки. */
+.player__votes {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--step--1);
+  color: #fff;
+  background: var(--grad-rose);
+  box-shadow: 0 6px 18px -8px rgba(255, 77, 109, 0.9);
+  animation: pop 260ms var(--ease-out);
+}
+
+.player--selectable { cursor: pointer; }
+
+.player--selectable:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--azure) 60%, transparent);
+  box-shadow: var(--shadow-md), 0 0 30px -14px var(--azure);
+}
+
+.player--selected {
+  border-color: var(--violet);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--violet), var(--glow-violet);
+}
+
+.player--selected::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--grad-violet);
+}
+
+.player--me { border-color: color-mix(in srgb, var(--mint) 50%, transparent); }
+
+.player--me .player__avatar {
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35), 0 0 18px -4px var(--mint);
+}
+
+.player--dead {
+  opacity: 0.42;
+  filter: grayscale(0.7);
+}
+
+.player--dead .player__avatar { transform: rotate(-8deg); }
+
+/* ------------------------------------------------------------------ */
+/*  Бейджи                                                             */
+/* ------------------------------------------------------------------ */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--glass-line);
+  color: var(--text-dim);
+}
+
+.tag--host  { color: var(--gold);   border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
+.tag--ready { color: var(--mint);   border-color: color-mix(in srgb, var(--mint) 45%, transparent); }
+.tag--town  { color: var(--azure);  border-color: color-mix(in srgb, var(--azure) 45%, transparent); }
+.tag--mafia { color: var(--rose);   border-color: color-mix(in srgb, var(--rose) 45%, transparent); }
+.tag--solo  { color: var(--violet); border-color: color-mix(in srgb, var(--violet) 50%, transparent); }
+
+/* ------------------------------------------------------------------ */
+/*  Код комнаты                                                        */
+/* ------------------------------------------------------------------ */
+
+.room-code {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 20px;
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: clamp(1.5rem, 1rem + 2.4vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--text);
+  background: rgba(8, 12, 26, 0.5);
+  border: 1px dashed color-mix(in srgb, var(--azure) 45%, transparent);
+  text-shadow: 0 0 22px rgba(53, 208, 255, 0.55);
+  transition: transform var(--t-fast) var(--ease-out), border-color var(--t-mid) var(--ease-out);
+}
+
+.room-code:hover {
+  transform: translateY(-2px);
+  border-color: var(--azure);
+  border-style: solid;
+  box-shadow: var(--glow-azure);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Карта роли                                                         */
+/* ------------------------------------------------------------------ */
+
+.role-card {
+  width: min(320px, 82vw);
+  aspect-ratio: 3 / 4.2;
+  margin-inline: auto;
+  perspective: 1400px;
+  cursor: pointer;
+}
+
+.role-card__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.role-card--open .role-card__inner { transform: rotateY(180deg); }
+
+.role-card__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  text-align: center;
+  border-radius: var(--r-xl);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border: 1px solid var(--glass-line-strong);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Рубашка: узор из тонких диагоналей и печать с шляпой. */
+.role-card__face--front {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 12px),
+    radial-gradient(circle at 50% 40%, rgba(124, 92, 255, 0.35), transparent 62%),
+    linear-gradient(160deg, #1d2547 0%, #0d1226 100%);
+}
+
+.role-card__face--front::after {
+  content: '🎩';
+  font-size: 74px;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6));
+  animation: float-soft 5s ease-in-out infinite;
+}
+
+.role-card__face--back {
+  transform: rotateY(180deg);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02)),
+    linear-gradient(180deg, #1a2244 0%, #0c1124 100%);
+}
+
+.role-card--town .role-card__face--back  { box-shadow: var(--shadow-lg), 0 0 60px -20px var(--azure); }
+.role-card--mafia .role-card__face--back { box-shadow: var(--shadow-lg), 0 0 60px -20px var(--rose); }
+.role-card--solo .role-card__face--back  { box-shadow: var(--shadow-lg), 0 0 60px -20px var(--violet); }
+
+.role-card__icon {
+  font-size: 66px;
+  line-height: 1;
+  filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.55));
+}
+
+.role-card__name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--step-2);
+  letter-spacing: -0.01em;
+}
+
+.role-card__desc {
+  font-size: var(--step--1);
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* Плашка «моя роль» в шапке игрового экрана. */
+.my-role {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 18px 10px 12px;
+  border-radius: var(--r-pill);
+  background: rgba(20, 27, 52, 0.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow-sm);
+}
+
+.my-role__icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.my-role__name { font-weight: 700; line-height: 1.2; }
+
+.my-role--town  { border-color: color-mix(in srgb, var(--azure) 45%, transparent); }
+.my-role--mafia { border-color: color-mix(in srgb, var(--rose) 45%, transparent); }
+.my-role--solo  { border-color: color-mix(in srgb, var(--violet) 50%, transparent); }
+
+/* ------------------------------------------------------------------ */
+/*  Модальные окна                                                     */
+/* ------------------------------------------------------------------ */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(4, 6, 16, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: fade-in var(--t-mid) var(--ease-out);
+}
+
+.modal__box {
+  width: min(460px, 100%);
+  padding: var(--space-5);
+  border-radius: var(--r-lg);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02)),
+    rgba(20, 27, 52, 0.9);
+  border: 1px solid var(--glass-line-strong);
+  box-shadow: var(--shadow-lg), 0 0 60px -30px var(--violet);
+  animation: modal-in var(--t-mid) var(--ease-out);
+}
+
+.modal__box h3 { margin-bottom: var(--space-3); }
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.modal-root:empty { display: none; }
+
+/* ------------------------------------------------------------------ */
+/*  Уведомления                                                        */
+/* ------------------------------------------------------------------ */
+
+.toast-root {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: min(380px, calc(100vw - 2 * var(--space-4)));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(20, 27, 52, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--glass-line);
+  border-left: 3px solid var(--violet);
+  box-shadow: var(--shadow-md);
+  animation: toast-in var(--t-mid) var(--ease-out);
+}
+
+.toast--ok    { border-left-color: var(--mint); }
+.toast--warn  { border-left-color: var(--gold); }
+.toast--error { border-left-color: var(--rose); }
+.toast--info  { border-left-color: var(--azure); }
+
+.toast--leaving { animation: toast-out var(--t-mid) var(--ease-soft) forwards; }
+
+@media (max-width: 560px) {
+  .toast-root {
+    top: auto;
+    bottom: 76px;
+    left: var(--space-3);
+    right: var(--space-3);
+    max-width: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Лента событий и чат                                                */
+/* ------------------------------------------------------------------ */
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.feed__item {
+  display: flex;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  font-size: var(--step--1);
+  line-height: 1.5;
+  background: rgba(8, 12, 26, 0.45);
+  border-left: 2px solid var(--line);
+  animation: rise var(--t-mid) var(--ease-out) backwards;
+}
+
+.feed__item--death { border-left-color: var(--rose); }
+.feed__item--save  { border-left-color: var(--mint); }
+.feed__item--info  { border-left-color: var(--azure); }
+
+.feed__author {
+  font-weight: 700;
+  color: var(--azure);
+  white-space: nowrap;
+}
+
+.chat-form {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.chat-form .input { flex: 1 1 auto; min-height: 46px; }
+
+/* ------------------------------------------------------------------ */
+/*  Таймер фазы                                                        */
+/* ------------------------------------------------------------------ */
+
+.timer {
+  padding: 8px 16px;
+  border-radius: var(--r-pill);
+  font-size: var(--step-1);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: rgba(8, 12, 26, 0.55);
+  border: 1px solid var(--glass-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.timer--urgent {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 55%, transparent);
+  animation: pulse-soft 1s var(--ease-soft) infinite;
+}
