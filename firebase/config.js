@@ -9,12 +9,12 @@
  * одного браузера. Это удобно для разработки и проверки правил игры.
  */
 export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: "AIzaSyC8vPAln9t4MkmUJF33LLZE4lBM1QdkSVo",
+  authDomain: "mafia-online-fdca5.firebaseapp.com",
+  projectId: "mafia-online-fdca5",
+  storageBucket: "mafia-online-fdca5.firebasestorage.app",
+  messagingSenderId: "207932498576",
+  appId: "1:207932498576:web:8b907ad935e92b677cee15",
 };
 
 /** Версия Firebase SDK, загружаемого с CDN как ES-модуль. */
