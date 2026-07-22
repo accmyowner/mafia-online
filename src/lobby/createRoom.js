@@ -22,6 +22,7 @@ export function renderCreate() {
     try {
       const { uid, name, avatar } = store.get();
       const code = await createRoom({ uid, name, avatar });
+      if (!code || code.error) throw new Error(code?.error || 'комната не создана');
       save(STORAGE_KEYS.lastRoom, code);
       sound.play('join');
       router.go('lobby', { code });

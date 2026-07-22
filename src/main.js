@@ -7,7 +7,7 @@
 import { store } from './core/store.js';
 import { router } from './core/router.js';
 import { bus } from './core/eventBus.js';
-import { connect, isLocalMode } from './network/db.js';
+import { connect, isLocalMode, onWatchError } from './network/db.js';
 import { load } from './utils/storage.js';
 import { STORAGE_KEYS, AVATARS } from './core/config.js';
 import { setLanguage } from './ui/i18n.js';
@@ -69,6 +69,12 @@ async function boot() {
   try {
     const uid = await connect();
     restoreProfile(uid);
+    if (isLocalMode()) {
+      showToast('Сервер недоступен: игра идёт в локальном режиме, соседние устройства друг друга не увидят.', 'warn', 7000);
+    }
+    // Оборванная подписка = список игроков перестаёт обновляться.
+    // Молчать об этом нельзя: со стороны выглядит как «никто не заходит».
+    onWatchError(() => showToast('Обновления из базы не приходят. Проверьте связь и правила доступа Firestore.', 'error', 7000));
   } catch (err) {
     console.error('[boot] хранилище недоступно:', err);
     showToast('Не удалось подключиться к серверу. Игра работает в локальном режиме.', 'warn', 6000);

@@ -34,6 +34,10 @@ export function freshState() {
 /** Создаёт комнату и сажает в неё хозяина. Возвращает код. */
 export async function createRoom(profile) {
   const store = db();
+  if (!validId(profile?.uid)) {
+    console.error('[rooms] создание комнаты без идентификатора игрока');
+    return { error: 'noAuth' };
+  }
   // Коллизии кодов почти невозможны, но проверить дешевле, чем потерять комнату.
   let code = generateCode(LIMITS.codeLength);
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -56,6 +60,15 @@ export async function createRoom(profile) {
 
   await addPlayer(code, profile, { isHost: true });
   return code;
+}
+
+/**
+ * Идентификатор игрока обязан быть непустой строкой: он же имя документа
+ * в rooms/{code}/players. Пустой uid означал бы, что все устройства пишут
+ * в одну карточку — лучше остановиться и сказать об этом прямо.
+ */
+function validId(uid) {
+  return typeof uid === 'string' && uid.length > 0 && !uid.includes('/');
 }
 
 /** Собирает документ игрока. */
@@ -102,6 +115,10 @@ function networkError(scope, err) {
  */
 export async function joinRoom(code, profile) {
   const store = db();
+  if (!validId(profile?.uid)) {
+    console.error('[rooms] вход в комнату без идентификатора игрока');
+    return { error: 'noAuth' };
+  }
 
   try {
     const room = await store.get(paths.room(code));
@@ -142,7 +159,17 @@ export async function joinRoom(code, profile) {
   }
 }
 
-/** Выход из комнаты. Хозяйство передаётся следующему игроку. */
+/**
+ * Выход из комнаты. Хозяйство передаётся следующему игроку.
+ *
+ * Порядок записей важен: пометку хозяина в чужой карточке ставим, пока
+ * права ещё наши, и только потом переписываем hostId комнаты. Если сделать
+ * наоборот, правила отклонят вторую запись — прежний хозяин уже не хозяин, —
+ * и выход обрывался ошибкой, не доводя игрока до меню.
+ *
+ * Уборка за собой не должна мешать уйти: свою карточку мы уже удалили,
+ * поэтому сбой передачи прав только пишется в консоль.
+ */
 export async function leaveRoom(code, uid) {
   const store = db();
   const room = await store.get(paths.room(code));
@@ -152,14 +179,19 @@ export async function leaveRoom(code, uid) {
   await store.del(paths.secret(code, uid));
 
   const rest = await store.list(paths.players(code));
-  if (!rest.length) {
-    await destroyRoom(code);
-    return;
-  }
-  if (room.hostId === uid) {
-    const heir = rest.slice().sort((a, b) => a.joinedAt - b.joinedAt)[0];
-    await store.update(paths.room(code), { hostId: heir.uid, updatedAt: Date.now() });
-    await store.update(paths.player(code, heir.uid), { isHost: true });
+
+  try {
+    if (!rest.length) {
+      await destroyRoom(code);
+      return;
+    }
+    if (room.hostId === uid) {
+      const heir = rest.slice().sort((a, b) => a.joinedAt - b.joinedAt)[0];
+      await store.update(paths.player(code, heir.uid), { isHost: true });
+      await store.update(paths.room(code), { hostId: heir.uid, updatedAt: Date.now() });
+    }
+  } catch (err) {
+    console.error('[rooms] передача прав хозяина при выходе:', err);
   }
 }
 
@@ -175,6 +207,29 @@ export async function destroyRoom(code) {
     store.delCollection(paths.chat(code, 'mafia')),
   ]);
   await store.del(paths.room(code));
+}
+
+/**
+ * Проверяет, что моя карточка действительно лежит в комнате, и
+ * восстанавливает её, если запись не дошла (обрыв связи, отказ правил,
+ * уснувшая вкладка). Возвращает true, если карточку пришлось вернуть.
+ */
+export async function repairMembership(code, profile) {
+  if (!validId(profile?.uid)) return false;
+  try {
+    const room = await db().get(paths.room(code));
+    if (!room || room.status !== 'lobby') return false;
+
+    const mine = await db().get(paths.player(code, profile.uid));
+    if (mine) return false;
+
+    console.warn('[rooms] карточка игрока пропала из комнаты — записываю заново');
+    await addPlayer(code, profile, { isHost: room.hostId === profile.uid });
+    return true;
+  } catch (err) {
+    console.error('[rooms] восстановление карточки:', err);
+    return false;
+  }
 }
 
 export async function setReady(code, uid, ready) {

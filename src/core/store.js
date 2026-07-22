@@ -71,9 +71,14 @@ class Store {
     return bus.on('store:change', handler);
   }
 
-  /** Я ли хозяин текущей комнаты. */
+  /**
+   * Я ли хозяин текущей комнаты.
+   * Пустые значения сравнивать нельзя: два клиента без идентификатора
+   * оба оказывались «хозяевами».
+   */
   get isHost() {
-    return Boolean(this.state.room && this.state.room.hostId === this.state.uid);
+    const { room, uid } = this.state;
+    return Boolean(room?.hostId && uid && room.hostId === uid);
   }
 
   /** Мой объект игрока в текущей комнате. */

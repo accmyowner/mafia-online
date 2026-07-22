@@ -19,6 +19,7 @@ const ERRORS = {
   full: 'join.full',
   started: 'join.started',
   network: 'error.network',
+  noAuth: 'error.noAuth',
 };
 
 export function renderJoin(params = {}) {

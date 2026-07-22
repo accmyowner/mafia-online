@@ -59,12 +59,7 @@ export const STORAGE_KEYS = {
   lastRoom: 'mafia:lastRoom',
 };
 
-/**
- * Ссылки нижней панели. Замените на свои перед публикацией —
- * больше нигде в коде они не встречаются.
- */
+/** Подпись автора в нижней панели. */
 export const LINKS = {
   author: 'Мафия Online',
-  github: 'https://github.com/',
-  discord: 'https://discord.com/',
 };

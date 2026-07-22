@@ -12,7 +12,7 @@ import { bus } from '../core/eventBus.js';
 import { router } from '../core/router.js';
 import { LIMITS, STORAGE_KEYS } from '../core/config.js';
 import { watchRoom, watchPlayers, subscriptionBundle } from '../network/subscriptions.js';
-import { setReady, leaveRoom, touch } from '../network/roomsRepo.js';
+import { setReady, leaveRoom, touch, repairMembership } from '../network/roomsRepo.js';
 import { engine } from '../game/gameEngine.js';
 import { validateDeck } from '../game/roleAssignment.js';
 import { playerCard, lobbyTags } from '../ui/components/playerCard.js';
@@ -202,7 +202,24 @@ export function renderLobby(params = {}) {
   }));
 
   engine.attach(code);
-  const heartbeat = setInterval(() => touch(code, store.get().uid).catch(() => {}), 30_000);
+
+  /**
+   * Присутствие и самопроверка.
+   *
+   * Если запись карточки не дошла (обрыв связи, отказ правил, уснувшая
+   * вкладка), игрок остаётся в лобби невидимым для остальных. Поэтому раз
+   * в полминуты — и один раз сразу после входа — проверяем, что мы есть
+   * в списке, и при необходимости записываемся заново.
+   */
+  async function keepSeat() {
+    const { uid, name, avatar } = store.get();
+    if (!uid) return;
+    const restored = await repairMembership(code, { uid, name, avatar });
+    if (!restored) touch(code, uid).catch(() => {});
+  }
+
+  const firstCheck = setTimeout(keepSeat, 2500);
+  const heartbeat = setInterval(keepSeat, 30_000);
 
   const screen = el('div.screen', {},
     el('div.lobby-head', {},
@@ -234,6 +251,7 @@ export function renderLobby(params = {}) {
     element: screen,
     destroy() {
       subs.close();
+      clearTimeout(firstCheck);
       clearInterval(heartbeat);
     },
   };

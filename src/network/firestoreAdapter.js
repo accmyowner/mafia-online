@@ -33,7 +33,22 @@ export class FirestoreAdapter {
 
     this.api = { ...firestore, ...auth };
     const instance = app.initializeApp(firebaseConfig);
-    this.db = firestore.getFirestore(instance);
+
+    /**
+     * initializeFirestore вместо getFirestore — ради двух настроек:
+     *
+     *  experimentalAutoDetectLongPolling — в мобильных сетях и за корпоративными
+     *  прокси веб-сокеты Firestore нередко режутся. Подписка при этом молча
+     *  замирает: свои записи видно (они из кэша), чужие не приходят никогда —
+     *  ровно та картина, когда в лобби вечно один игрок. С автоопределением
+     *  клиент переключается на длинные опросы и список снова живой.
+     *
+     *  ignoreUndefinedProperties — одно undefined в документе роняло всю запись.
+     */
+    this.db = firestore.initializeFirestore(instance, {
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true,
+    });
     this.auth = auth.getAuth(instance);
 
     // Кэш на диске: меньше чтений и мгновенный отклик при переподключении.
@@ -45,20 +60,38 @@ export class FirestoreAdapter {
     return true;
   }
 
-  /** Анонимная авторизация: uid стабилен между перезагрузками. */
+  /**
+   * Анонимная авторизация. uid здесь — это и есть playerId: он же
+   * идентификатор документа игрока и он же проверяется правилами.
+   *
+   * Раньше сбой входа проваливался наверх, приложение продолжало работать
+   * с uid = undefined, и все устройства писали в один документ
+   * players/undefined — отсюда «в комнате всегда один игрок» и «хозяин у
+   * всех». Теперь без настоящего uid игра к Firestore не подключается.
+   */
   async signIn() {
     await this.ready();
     const { signInAnonymously, onAuthStateChanged } = this.api;
-    if (this.auth.currentUser) return (this.uid = this.auth.currentUser.uid);
 
-    const user = await new Promise((resolve, reject) => {
-      const stop = onAuthStateChanged(this.auth, (u) => {
-        if (u) { stop(); resolve(u); }
-      }, reject);
-      signInAnonymously(this.auth).catch(reject);
+    // Сначала ждём, пока SDK восстановит сохранённую сессию.
+    const restored = await new Promise((resolve) => {
+      const stop = onAuthStateChanged(this.auth, (user) => { stop(); resolve(user); },
+        () => resolve(null));
     });
-    this.uid = user.uid;
-    return this.uid;
+    if (restored?.uid) return (this.uid = restored.uid);
+
+    try {
+      const credential = await signInAnonymously(this.auth);
+      const uid = credential?.user?.uid;
+      if (!uid) throw new Error('Firebase вернул вход без идентификатора');
+      this.uid = uid;
+      return uid;
+    } catch (err) {
+      const reason = err?.code === 'auth/operation-not-allowed'
+        ? 'в консоли Firebase не включён анонимный вход (Authentication → Sign-in method → Anonymous)'
+        : err?.message || String(err);
+      throw new Error(`Анонимный вход не выполнен: ${reason}`);
+    }
   }
 
   now() { return Date.now(); }
@@ -108,7 +141,7 @@ export class FirestoreAdapter {
     return this.api.onSnapshot(
       this.#doc(path),
       (snap) => callback(snap.exists() ? snap.data() : null),
-      (err) => console.error('[firestore] подписка на документ:', err),
+      (err) => this.#watchFailed(path, err),
     );
   }
 
@@ -116,8 +149,17 @@ export class FirestoreAdapter {
     return this.api.onSnapshot(
       this.#coll(collPath),
       (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (err) => console.error('[firestore] подписка на коллекцию:', err),
+      (err) => this.#watchFailed(collPath, err),
     );
+  }
+
+  /**
+   * Оборванная подписка — самая незаметная поломка: экран просто перестаёт
+   * обновляться. Поэтому о ней сообщаем один раз наружу, а не только в консоль.
+   */
+  #watchFailed(path, err) {
+    console.error(`[firestore] подписка «${path}» оборвалась:`, err);
+    if (this.onWatchError) this.onWatchError(path, err);
   }
 
   /**

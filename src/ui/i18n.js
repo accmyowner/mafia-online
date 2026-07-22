@@ -184,6 +184,7 @@ const DICT = {
     'create.step1': 'Получаете код комнаты и отправляете его друзьям.',
     'create.step2': 'Настраиваете состав ролей и время фаз — это видят все.',
     'create.step3': 'Когда все готовы, начинаете партию.',
+    'error.noAuth': 'Не удалось получить идентификатор игрока. Обновите страницу.',
   },
 
   en: {
@@ -360,6 +361,7 @@ const DICT = {
     'create.step1': 'You get a room code and send it to your friends.',
     'create.step2': 'You set the roles and phase timings — everyone sees them.',
     'create.step3': 'When everyone is ready, you start the game.',
+    'error.noAuth': 'Could not obtain a player id. Please reload the page.',
   },
 };
 
