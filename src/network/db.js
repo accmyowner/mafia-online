@@ -12,13 +12,17 @@ import { bus } from '../core/eventBus.js';
 let adapter = null;
 
 /**
- * Инициализация хранилища и вход. Возвращает playerId — он же uid,
- * он же идентификатор документа игрока в rooms/{code}/players.
+ * Инициализация хранилища и вход. Возвращает playerId — он же
+ * идентификатор документа игрока в rooms/{code}/players.
  *
- * Подключение считается удачным только если получен непустой uid:
- * без него все устройства писали бы в один и тот же документ.
- * Если Firebase недоступен или анонимный вход не включён, честно
- * переходим в локальный режим — и нижняя панель это показывает.
+ * В локальный режим переходим только тогда, когда недоступна сама база:
+ * не подключился SDK, не заполнена конфигурация, не открылось соединение.
+ * Несостоявшийся анонимный вход к таким случаям не относится — Firestore
+ * при этом работает, и клиент продолжает играть по сети со своим
+ * постоянным идентификатором (см. FirestoreAdapter.signIn).
+ *
+ * Обязательное условие одно: непустой уникальный идентификатор. Без него
+ * все устройства писали бы в один и тот же документ игрока.
  */
 export async function connect() {
   if (!adapter) adapter = isConfigured() ? new FirestoreAdapter() : new LocalAdapter();
@@ -29,7 +33,7 @@ export async function connect() {
     uid = await adapter.signIn();
     if (typeof uid !== 'string' || !uid) throw new Error('хранилище не выдало идентификатор игрока');
   } catch (err) {
-    console.error('[db] Firebase недоступен, переключаюсь на локальный режим:', err);
+    console.error('[db] база недоступна, переключаюсь на локальный режим:', err);
     adapter = new LocalAdapter();
     await adapter.ready();
     uid = await adapter.signIn();
@@ -37,7 +41,8 @@ export async function connect() {
   }
 
   store.patch({ uid });
-  console.info(`[db] режим: ${adapter.name} · playerId: ${uid}`);
+  console.info(`[db] режим: ${adapter.name} · playerId: ${uid}`
+    + (adapter.authFailed ? ' (без анонимного входа)' : ''));
   return uid;
 }
 

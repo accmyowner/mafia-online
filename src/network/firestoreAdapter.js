@@ -7,6 +7,25 @@
  * логика ничего не знает о Firebase.
  */
 import { firebaseConfig, FIREBASE_SDK } from '../../firebase/config.js';
+import { load, save } from '../utils/storage.js';
+
+/** Ключ, под которым в браузере лежит запасной идентификатор игрока. */
+const PLAYER_ID_KEY = 'mafia:playerId';
+
+/**
+ * Собственный идентификатор клиента на случай, когда анонимный вход
+ * недоступен. Он такой же уникальный и такой же постоянный, как uid из
+ * Firebase: создаётся один раз на браузер и сохраняется. Главное, ради
+ * чего он нужен, — чтобы два устройства никогда не писали в один документ.
+ */
+function localPlayerId() {
+  let id = load(PLAYER_ID_KEY, null);
+  if (!id) {
+    id = 'web-' + (crypto.randomUUID?.() || Math.random().toString(36).slice(2)).replace(/-/g, '').slice(0, 16);
+    save(PLAYER_ID_KEY, id);
+  }
+  return id;
+}
 
 /** Путь -> ссылка на документ (нечётное число сегментов = коллекция). */
 function splitPath(path) {
@@ -61,36 +80,72 @@ export class FirestoreAdapter {
   }
 
   /**
-   * Анонимная авторизация. uid здесь — это и есть playerId: он же
-   * идентификатор документа игрока и он же проверяется правилами.
+   * Ожидание сохранённой сессии.
    *
-   * Раньше сбой входа проваливался наверх, приложение продолжало работать
-   * с uid = undefined, и все устройства писали в один документ
-   * players/undefined — отсюда «в комнате всегда один игрок» и «хозяин у
-   * всех». Теперь без настоящего uid игра к Firestore не подключается.
+   * Наблюдатель может сработать и синхронно, поэтому функция отписки
+   * вызывается только после того, как она получена, а само ожидание
+   * ограничено по времени: молчащий Firebase не должен подвешивать запуск.
+   */
+  async #restoreSession() {
+    const { onAuthStateChanged } = this.api;
+    return new Promise((resolve) => {
+      let stop = null;
+      let settled = false;
+      const finish = (user) => {
+        if (settled) return;
+        settled = true;
+        try { stop?.(); } catch { /* уже отписаны */ }
+        resolve(user || null);
+      };
+      const timer = setTimeout(() => finish(null), 4000);
+      stop = onAuthStateChanged(
+        this.auth,
+        (user) => { clearTimeout(timer); finish(user); },
+        () => { clearTimeout(timer); finish(null); },
+      );
+      if (settled) { try { stop(); } catch { /* уже отписаны */ } }
+    });
+  }
+
+  /**
+   * Вход. Возвращаемое значение — playerId: он же идентификатор документа
+   * игрока в rooms/{code}/players.
+   *
+   * Анонимный вход — предпочтительный путь. Но его может не быть: провайдер
+   * выключен в консоли или домен не в списке разрешённых. Это не значит, что
+   * недоступен Firestore, — база продолжает работать. Поэтому сбой входа
+   * больше не роняет всё приложение в локальный режим: клиент берёт
+   * собственный постоянный идентификатор и работает с Firestore дальше.
+   *
+   * Единственное, что остаётся неизменным: идентификатор обязан быть
+   * уникальным для каждого клиента — иначе устройства снова начнут писать
+   * в одну карточку игрока.
    */
   async signIn() {
     await this.ready();
-    const { signInAnonymously, onAuthStateChanged } = this.api;
 
-    // Сначала ждём, пока SDK восстановит сохранённую сессию.
-    const restored = await new Promise((resolve) => {
-      const stop = onAuthStateChanged(this.auth, (user) => { stop(); resolve(user); },
-        () => resolve(null));
-    });
-    if (restored?.uid) return (this.uid = restored.uid);
+    const restored = await this.#restoreSession();
+    if (restored?.uid) {
+      this.authFailed = false;
+      return (this.uid = restored.uid);
+    }
 
     try {
-      const credential = await signInAnonymously(this.auth);
+      const credential = await this.api.signInAnonymously(this.auth);
       const uid = credential?.user?.uid;
       if (!uid) throw new Error('Firebase вернул вход без идентификатора');
+      this.authFailed = false;
       this.uid = uid;
       return uid;
     } catch (err) {
       const reason = err?.code === 'auth/operation-not-allowed'
         ? 'в консоли Firebase не включён анонимный вход (Authentication → Sign-in method → Anonymous)'
-        : err?.message || String(err);
-      throw new Error(`Анонимный вход не выполнен: ${reason}`);
+        : err?.code === 'auth/unauthorized-domain'
+          ? 'домен сайта не добавлен в список разрешённых (Authentication → Settings → Authorized domains)'
+          : err?.code || err?.message || String(err);
+      console.warn(`[firestore] анонимный вход не выполнен (${reason}); работаю с собственным идентификатором игрока`);
+      this.authFailed = true;
+      return (this.uid = localPlayerId());
     }
   }
 
